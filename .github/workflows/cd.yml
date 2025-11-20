@@ -37,6 +37,7 @@ jobs:
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.GH_AWS_ROLE_ARN }}
+          audience: sts.amazonaws.com
 
       - name: Install CDK Python deps
         run: |

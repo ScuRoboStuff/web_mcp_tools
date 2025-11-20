@@ -1,19 +1,17 @@
-﻿name: deploy (auto release + deploy)
+name: deploy (auto release + deploy)
 
 on:
   workflow_run:
-    workflows: ["tests"]
-    types: [completed]
+   # workflows: ["tests"]
+   #types: [completed]
     branches: ["master"]
 
 permissions:
-  contents: write    # needed by semantic-release to create tags/releases and update changelog
+  contents: write
 
 jobs:
-
   release:
     name: Create Release (semantic-release)
-    # Run only if the external CI workflow (tests) concluded successfully
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
@@ -28,7 +26,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Ensure we release the exact commit that passed CI
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Node.js
@@ -36,27 +33,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Preflight semantic-release config (CJS)
-        run: node -e "require('./.releaserc.cjs'); console.log('semantic-release config OK')"
-
       - name: Get previous tag (if any)
         id: pretag
         run: |
           echo "tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
 
+      - name: Preflight semantic-release config (CJS)
+        run: node -e "require('./.releaserc.cjs'); console.log('semantic-release config OK')"
+
       - name: Initialize Node project and install Semantic Release
         run: |
           npm init -y
-          npm install -D \
-            semantic-release \
-            @semantic-release/commit-analyzer \
-            @semantic-release/release-notes-generator \
-            @semantic-release/changelog \
-            @semantic-release/github \
-            @semantic-release/git \
-            --no-audit --no-fund --silent
+          npm install --save-dev \
+            semantic-release@^23.0.0 \
+            @semantic-release/commit-analyzer@^11.0.0 \
+            @semantic-release/release-notes-generator@^12.0.0 \
+            @semantic-release/changelog@^6.0.0 \
+            @semantic-release/github@^9.0.0 \
+            @semantic-release/git@^10.0.0 \
+            conventional-changelog-conventionalcommits@^7.0.0
 
       - name: Run Semantic Release
+        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release --config .releaserc.cjs
@@ -89,7 +87,7 @@ jobs:
       group: deploy-production
       cancel-in-progress: false
     env:
-      AWS_ACCOUNT_ID:  ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: us-east-1
       TAG_NAME: v${{ needs.release.outputs.version }}
     permissions:
@@ -127,8 +125,7 @@ jobs:
           pip install -r cdk/requirements.txt
 
       - name: (Optional) Install project deps for bundling
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: CDK Bootstrap (safe to re-run)
         run: cdk bootstrap aws://$AWS_ACCOUNT_ID/$AWS_REGION

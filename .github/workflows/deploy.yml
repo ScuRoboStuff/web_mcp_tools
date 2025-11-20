@@ -44,12 +44,14 @@ jobs:
       - name: Initialize Node project and install Semantic Release
         run: |
           npm init -y
-          npm install -D semantic-release@22 \
+          npm install -D \
+            semantic-release \
             @semantic-release/commit-analyzer \
             @semantic-release/release-notes-generator \
             @semantic-release/changelog \
             @semantic-release/github \
-            @semantic-release/git
+            @semantic-release/git \
+            --no-audit --no-fund --silent
 
       - name: Run Semantic Release
         env:

@@ -4,7 +4,6 @@ export LOG_LEVEL=INFO
 python -m src.server
 ```
 
-
 By default, the server starts using the `streamable-http` transport provided by `fastmcp`. Integrate it with your MCP-compatible client by pointing the client to the running server as per your client's documentation.
 
 ### Using the `web_search` tool

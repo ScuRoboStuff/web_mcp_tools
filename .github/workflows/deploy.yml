@@ -36,6 +36,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Preflight semantic-release config (CJS)
+        run: node -e "require('./.releaserc.cjs'); console.log('semantic-release config OK')"
+
       - name: Get previous tag (if any)
         id: pretag
         run: |
@@ -56,7 +59,7 @@ jobs:
       - name: Run Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: npx semantic-release --config .releaserc.cjs
 
       - name: Get new tag (if published)
         id: posttag

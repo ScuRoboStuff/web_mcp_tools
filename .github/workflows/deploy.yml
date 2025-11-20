@@ -21,8 +21,8 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      published: ${{ steps.semantic.outputs.new_release_published }}
-      version: ${{ steps.semantic.outputs.new_release_version }}
+      published: ${{ steps.relout.outputs.published }}
+      version: ${{ steps.relout.outputs.version }}
     steps:
       - name: Checkout commit from successful CI run
         uses: actions/checkout@v4
@@ -36,19 +36,44 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Semantic Release
-        id: semantic
-        uses: cycjimmy/semantic-release-action@v4
-        with:
-          semantic_version: 22
-          extra_plugins: |
-            @semantic-release/commit-analyzer
-            @semantic-release/release-notes-generator
-            @semantic-release/changelog
-            @semantic-release/github
+      - name: Get previous tag (if any)
+        id: pretag
+        run: |
+          echo "tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+
+      - name: Initialize Node project and install Semantic Release
+        run: |
+          npm init -y
+          npm install -D semantic-release@22 \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/changelog \
+            @semantic-release/github \
             @semantic-release/git
+
+      - name: Run Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Get new tag (if published)
+        id: posttag
+        run: |
+          echo "tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+
+      - name: Determine release outputs
+        id: relout
+        run: |
+          if [ "${{ steps.posttag.outputs.tag }}" != "${{ steps.pretag.outputs.tag }}" ] && [ -n "${{ steps.posttag.outputs.tag }}" ]; then
+            echo "published=true" >> $GITHUB_OUTPUT
+            # Strip leading 'v' from tag for version output consistency
+            ver="${{ steps.posttag.outputs.tag }}"
+            ver_nov=${ver#v}
+            echo "version=${ver_nov}" >> $GITHUB_OUTPUT
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+          fi
 
   deploy:
     name: Deploy CDK (tagged release)

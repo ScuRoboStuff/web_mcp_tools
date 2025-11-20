@@ -1,0 +1,10 @@
+﻿# Normalize text files to LF and avoid platform-specific line endings
+* text=auto eol=lf
+
+# Ensure common text formats use LF
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.py   text eol=lf
+*.cjs  text eol=lf

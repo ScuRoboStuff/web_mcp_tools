@@ -2,9 +2,9 @@ name: deploy (auto release + deploy)
 
 on:
   workflow_run:
-   # workflows: ["tests"]
-   #types: [completed]
-    branches: ["master"]
+   workflows: ["tests"]
+   types: [completed]
+   branches: ["master"]
 
 permissions:
   contents: write

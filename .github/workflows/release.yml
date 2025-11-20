@@ -1,18 +1,10 @@
-name: deploy lambdfa (deprecated)
+﻿name: release (deprecated)
 
 # Deprecated: superseded by .github/workflows/deploy.yml which
 # performs CI -> Semantic Release -> CDK deploy in one pipeline.
 # This workflow is disabled and kept only for reference.
 on:
   workflow_dispatch:
-
-permissions:
-  id-token: write   # required for GitHub OIDC to AWS
-  contents: read
-
-env:
-  AWS_ACCOUNT_ID:  ${{ secrets.AWS_ACCOUNT_ID }}
-  AWS_REGION: us-east-1
 
 jobs:
   disabled:

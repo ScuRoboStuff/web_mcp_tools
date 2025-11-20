@@ -2,6 +2,7 @@
 
 ## Overview
 
+
 Requires : (Conventional Commits)[https://github.com/conventional-changelog/commitlint/#what-is-commitlint]
 
 `web-search-mcp` is a minimal Model Context Protocol (MCP) server built with `fastmcp`. It exposes a single tool today — `web_search` — that performs DuckDuckGo web searches via the `ddgs` library and returns up to the top 10 results.

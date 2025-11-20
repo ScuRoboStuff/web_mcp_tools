@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/ScuRoboStuff/web_mcp_tools/compare/v1.0.0...v1.0.1) (2025-11-20)
+
+
+### Bug Fixes
+
+* version changes ([0a63fcc](https://github.com/ScuRoboStuff/web_mcp_tools/commit/0a63fcc0be9d48cb3af1dc39d780f77392c7c01a))
+
 ## 1.0.0 (2025-11-20)
 
 

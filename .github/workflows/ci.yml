@@ -23,11 +23,18 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f .releaserc.json ]; then
-            # Fail if file starts with UTF-8 BOM
-            if head -c 3 .releaserc.json | grep -q $'\xEF\xBB\xBF'; then
+            echo "Checking .releaserc.json for UTF-8 BOM and valid JSON..."
+            # Print first 16 bytes for diagnostics
+            echo "First 16 bytes (hex):"
+            hexdump -v -e '16/1 "%02x " "\n"' -n 16 .releaserc.json || true
+
+            # Robust BOM detection using hexdump (EF BB BF)
+            bytes=$(hexdump -v -e '1/1 "%02x"' -n 3 .releaserc.json || true)
+            if [ "$bytes" = "efbbbf" ]; then
               echo "Error: .releaserc.json contains a UTF-8 BOM (U+FEFF). Remove it." >&2
               exit 1
             fi
+
             # Validate JSON syntax
             jq -e . .releaserc.json >/dev/null
           fi

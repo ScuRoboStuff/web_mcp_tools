@@ -1,8 +1,10 @@
-name: deploy
+name: deploy lambdfa
 
 on:
-  push:
-    branches: [ "master" ]
+  workflow_run:
+    workflows: ["tests"]
+    types: [completed]
+    branches: ["master"]
 
 permissions:
   id-token: write   # required for GitHub OIDC to AWS
@@ -14,10 +16,15 @@ env:
 
 jobs:
   cdk-deploy:
+    # Only proceed if the triggering CI workflow concluded successfully
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Deploy exactly the commit that passed CI
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5

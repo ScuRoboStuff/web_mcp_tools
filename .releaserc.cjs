@@ -1,7 +1,7 @@
 ﻿module.exports = {
   branches: ["master"],
   tagFormat: "v${version}",
-  repositoryUrl: "https://github.com/ScuRoboStuff/web-search-mcp.git",
+  repositoryUrl: "https://github.com/ScuRoboStuff/web_mcp_tools.git",
   plugins: [
     ["@semantic-release/commit-analyzer", { preset: "conventionalcommits" }],
     ["@semantic-release/release-notes-generator", { preset: "conventionalcommits" }],

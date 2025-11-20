@@ -61,6 +61,7 @@ class WebSearchMcpStack(Stack):
             )
 
             CfnOutput(self, "LambdaAliasName", value=alias.alias_name)
-            CfnOutput(self, "LambdaAliasArn", value=alias.alias_arn)
+            # Alias implements IFunction; use function_arn for the alias ARN
+            CfnOutput(self, "LambdaAliasArn", value=alias.function_arn)
 
         CfnOutput(self, "LambdaVersion", value=lambda_version.version)

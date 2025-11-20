@@ -209,6 +209,7 @@ cdk synth
 cdk deploy
 ```
 
+
 Notes:
 - CDK bundles the Lambda from `src/` and installs `src/requirements.txt` into the artifact. Tests and dev-only files are not included.
 - The MCP server code remains unchanged and is not started in Lambda; only `web_search_impl` is used via the handler.

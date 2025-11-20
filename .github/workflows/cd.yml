@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  AWS_ACCOUNT_ID: 920096439137
+  AWS_ACCOUNT_ID:  ${{ secrets.AWS_ACCOUNT_ID }}
   AWS_REGION: us-east-1
 
 jobs:

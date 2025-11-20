@@ -1,0 +1,134 @@
+﻿name: deploy (auto release + deploy)
+
+on:
+  push:
+    branches: [ "master" ]
+
+permissions:
+  contents: write    # needed by semantic-release to create tags/releases and update changelog
+
+jobs:
+  ci:
+    name: CI (lint commits + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lint commits (Conventional Commits)
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.cjs
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run tests
+        run: pytest -q
+
+  release:
+    name: Create Release (semantic-release)
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      published: ${{ steps.semantic.outputs.new_release_published }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 22
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/changelog
+            @semantic-release/github
+            @semantic-release/git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy CDK (tagged release)
+    needs: release
+    if: ${{ needs.release.outputs.published == 'true' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      AWS_ACCOUNT_ID:  ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: us-east-1
+      TAG_NAME: v${{ needs.release.outputs.version }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG_NAME }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node (for CDK CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk@2
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.GH_AWS_ROLE_ARN }}
+          audience: sts.amazonaws.com
+
+      - name: Install CDK Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r cdk/requirements.txt
+
+      - name: (Optional) Install project deps for bundling
+        run: |
+          pip install -r requirements.txt
+
+      - name: CDK Bootstrap (safe to re-run)
+        run: cdk bootstrap aws://$AWS_ACCOUNT_ID/$AWS_REGION
+
+      - name: CDK Deploy
+        working-directory: cdk
+        env:
+          AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APP_VERSION: v${{ needs.release.outputs.version }}
+        run: cdk deploy --app "python app.py" -c appVersion=$APP_VERSION --require-approval never

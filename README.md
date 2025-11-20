@@ -106,3 +106,109 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) installs dependencies and
 ### License
 
 MIT or your preferred license. Update this section as needed.
+
+## Deployment (AWS CDK → AWS Lambda)
+
+This repo includes an optional Continuous Deployment (CD) workflow that deploys the project as an internal AWS Lambda function using AWS CDK (Python). The Lambda is named `web_search_mcp` and invokes the existing `web_search_impl` logic via `src/lambda_handler.py`.
+
+What gets provisioned:
+- AWS Lambda function: `web_search_mcp` (Python 3.11)
+- No public API; for internal invocation only (e.g., via EventBridge, other Lambdas, or manual invocation)
+
+### Event format (Lambda)
+Invoke the function with a JSON payload like:
+
+```
+{
+  "query": "chatgpt",
+  "max_results": 5
+}
+```
+
+The response mirrors the dict returned by `web_search_impl`:
+
+```
+{
+  "query": "chatgpt",
+  "results": [ {"title": "...", "url": "...", "snippet": "..."}, ... ],
+  "errors": []
+}
+```
+
+### CDK project layout
+- `cdk/app.py` — CDK entrypoint
+- `cdk/web_search_mcp_stack.py` — defines the Lambda (no API Gateway)
+- `cdk/requirements.txt` — CDK Python dependencies
+- `src/lambda_handler.py` — AWS Lambda entrypoint calling `web_search_impl`
+- `src/requirements.txt` — minimal runtime deps bundled into the Lambda
+
+### GitHub Actions CD (push to main)
+- Workflow: `.github/workflows/cd.yml`
+- Triggers: push to `main`
+- Uses GitHub OIDC to assume an AWS IAM role
+- Expects the following:
+  - Repo secret: `GH_AWS_ROLE_ARN` — ARN of the IAM role to assume
+  - Environment variables baked into the workflow: `AWS_ACCOUNT_ID` and `AWS_REGION`
+
+Defaults in this repo:
+- `AWS_ACCOUNT_ID=920096439137`
+- `AWS_REGION=us-east-1`
+
+You can change these by editing `.github/workflows/cd.yml`.
+
+### One-time AWS setup (OIDC role)
+You need an IAM role that GitHub Actions can assume via OpenID Connect. The simplest path is to create a role with trust policy for your GitHub repo and attach `AdministratorAccess` (tighten later).
+
+1. Create an IAM role (e.g., `GitHubActionsDeployRole`) with the following trust policy, updating `repo: <owner>/<repo>` and branches as needed:
+
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": { "Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com" },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:<OWNER>/<REPO>:ref:refs/heads/main"
+        }
+      }
+    }
+  ]
+}
+```
+
+2. Attach permissions (start broad, then tighten):
+   - `AdministratorAccess` (for initial bootstrap and deployment)
+
+3. In your GitHub repo settings, add a secret named `GH_AWS_ROLE_ARN` with the role's ARN.
+
+### Deploy from CI
+Push to `main`. The `deploy` workflow will:
+1. Configure OIDC and assume the role (`GH_AWS_ROLE_ARN`).
+2. Install CDK CLI and Python CDK deps.
+3. `cdk bootstrap` your account/region (safe if already bootstrapped).
+4. `cdk deploy` the `WebSearchMcpStack` without manual approval.
+
+### Local synth/deploy (optional)
+
+```
+python -m pip install --upgrade pip
+pip install -r cdk/requirements.txt
+
+# Set your env (PowerShell example)
+$env:AWS_ACCOUNT_ID="123456789"
+$env:AWS_REGION="us-east-1"
+
+# Use your configured AWS credentials locally
+cdk synth
+cdk deploy
+```
+
+Notes:
+- CDK bundles the Lambda from `src/` and installs `src/requirements.txt` into the artifact. Tests and dev-only files are not included.
+- The MCP server code remains unchanged and is not started in Lambda; only `web_search_impl` is used via the handler.

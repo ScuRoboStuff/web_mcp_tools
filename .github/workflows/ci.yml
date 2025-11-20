@@ -13,6 +13,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install jq (for JSON validation)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Validate JSON configs (no BOM, valid JSON)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f .releaserc.json ]; then
+            # Fail if file starts with UTF-8 BOM
+            if head -c 3 .releaserc.json | grep -q $'\xEF\xBB\xBF'; then
+              echo "Error: .releaserc.json contains a UTF-8 BOM (U+FEFF). Remove it." >&2
+              exit 1
+            fi
+            # Validate JSON syntax
+            jq -e . .releaserc.json >/dev/null
+          fi
+
       - name: Lint commits (Conventional Commits)
         uses: wagoid/commitlint-github-action@v6
         with:

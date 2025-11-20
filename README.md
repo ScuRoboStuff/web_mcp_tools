@@ -1,68 +1,4 @@
-﻿# web-search-mcp
-
-## Overview
-
-
-Requires : (Conventional Commits)[https://github.com/conventional-changelog/commitlint/#what-is-commitlint]
-
-`web-search-mcp` is a minimal Model Context Protocol (MCP) server built with `fastmcp`. It exposes a single tool today — `web_search` — that performs DuckDuckGo web searches via the `ddgs` library and returns up to the top 10 results.
-
-Key points (from `src/server.py`):
-- Uses `FastMCP` to run a streamable HTTP MCP server.
-- Tool: `web_search(query: str, max_results: int = 10)` delegates to `web_search_impl`.
-- Input validation ensures `query` is a non-empty string; `max_results` is capped to 10.
-- Each result item contains: `title`, `url`, and `snippet`.
-- Structured logging is enabled; adjust with `LOG_LEVEL` environment variable (e.g., `DEBUG`, `INFO`).
-
-The server is started with `mcp.run("streamable-http")` when invoked as a script.
-
-## MCP Tools
-
-MCP Server will have various tools to help when interacting with Search and Web Crawling. Below is an initial list we will enhance over time as more tools are added.
-
-| Tool name   | Description |
-|-------------|-------------|
-| `web_search` | Search DuckDuckGo and return up to 10 results with `title`, `url`, and `snippet`. Parameters: `query` (str), `max_results` (int, optional, capped at 10). |
-| `web_crawl` (planned) | Crawl a given URL and extract readable text, metadata, and links. |
-| `fetch_page_text` (planned) | Fetch a single page and return cleaned text for summarization/RAG. |
-
-We will refine and expand these descriptions as additional tools are implemented.
-
-## Setup
-
-Prerequisites:
-- Python 3.11+
-
-Steps:
-1. Clone the repository and switch into the project directory.
-2. (Recommended) Create a virtual environment:
-   - Windows PowerShell:
-     ```
-     python -m venv .venv
-     .venv\Scripts\Activate.ps1
-     ```
-   - macOS/Linux:
-     ```
-     python -m venv .venv
-     source .venv/bin/activate
-     ```
-3. Upgrade pip and install dependencies:
-   ```
-   python -m pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-
-### Running the MCP server
-
-Set the desired log level (optional) and start the server:
-
-```
-set LOG_LEVEL=INFO   # Windows PowerShell
-python -m src.server
-```
-
-On macOS/Linux:
-
+﻿
 ```
 export LOG_LEVEL=INFO
 python -m src.server
@@ -216,3 +152,54 @@ cdk deploy
 Notes:
 - CDK bundles the Lambda from `src/` and installs `src/requirements.txt` into the artifact. Tests and dev-only files are not included.
 - The MCP server code remains unchanged and is not started in Lambda; only `web_search_impl` is used via the handler.
+
+
+## Releases, Versioning, and Deployment
+
+This repo uses Conventional Commits + Semantic Release to automatically version, create GitHub Releases, and deploy the Lambda via CDK.
+
+### Commit message rules (Conventional Commits)
+
+- Major release: add `!` after type or include a `BREAKING CHANGE:` footer
+  - Example: `feat!: remove deprecated endpoint`
+  - Or:
+    ```
+    fix: adjust auth flow
+
+    BREAKING CHANGE: removed legacy token support
+    ```
+- Minor release: `feat: ...`
+  - Example: `feat(search): add max_results option`
+- Patch release: `fix: ...` or `perf: ...`
+  - Example: `fix: handle empty query gracefully`
+- Non-releasing by default: `docs:`, `chore:`, `ci:`, `build:`, `test:` (unless you add `!`)
+
+Tip: To force a patch release without code changes, push an empty commit:
+```
+git checkout master
+git pull --ff-only
+git commit --allow-empty -m "fix: trigger release"
+git push
+```
+
+### Pipeline flow
+
+1. Push to `master` with Conventional Commit messages.
+2. Workflow `tests` runs (lint commits + run tests). Must succeed.
+3. Workflow `deploy (auto release + deploy)` triggers from the successful CI run and:
+   - Calculates next semver and publishes a GitHub Release tag `vX.Y.Z` with notes.
+   - Deploys that exact tag with CDK.
+4. The Lambda is published as a new Lambda Version, with an Alias named like the tag (`v1-2-3`) and environment variable `APP_VERSION` set to the tag.
+
+### Where to see results
+
+- GitHub → Releases: new `vX.Y.Z` with notes and updated `CHANGELOG.md`.
+- AWS Lambda → your function `web_search_mcp`:
+  - Versions: one per release, description includes `Release vX.Y.Z`.
+  - Aliases: `vX-Y-Z` pointing to its version.
+  - Environment: `APP_VERSION` set to release tag.
+
+### Formatting and validation
+
+- CI validates `.releaserc.json` has no UTF-8 BOM and is valid JSON.
+- The repository includes `.editorconfig` enforcing UTF-8 (no BOM) and LF endings.

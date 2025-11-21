@@ -22,7 +22,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       TARGET_REPO: ${{ secrets.TARGET_REPO }}
-      DOCKER_CONTEXT: .
+      BUILD_CONTEXT: .
       DOCKERFILE: Dockerfile
     permissions:
       id-token: write
@@ -71,6 +71,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Defensively unset DOCKER_CONTEXT (avoid Docker CLI context conflicts)
+        shell: bash
+        run: |
+          # If an env var named DOCKER_CONTEXT is set (repo/org envs), it
+          # changes Docker CLI behavior and breaks buildx. Clear it explicitly.
+          echo "DOCKER_CONTEXT=" >> "$GITHUB_ENV"
+
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
@@ -79,7 +86,7 @@ jobs:
         shell: bash
         run: |
           if [ -f "${{ env.DOCKERFILE }}" ]; then
-            echo "context=${{ env.DOCKER_CONTEXT }}" >> $GITHUB_OUTPUT
+            echo "context=${{ env.BUILD_CONTEXT }}" >> $GITHUB_OUTPUT
             echo "file=${{ env.DOCKERFILE }}" >> $GITHUB_OUTPUT
           elif [ -f ".bedrock_agentcore/web_tools/Dockerfile" ]; then
             # Fallback to legacy agent core Dockerfile if present

@@ -1,0 +1,105 @@
+﻿name: ecr-publish (build and push Docker image only)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to tag image with (omit leading 'v'; defaults to latest release tag)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and push Docker image to ECR
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ecr-publish
+      cancel-in-progress: false
+    env:
+      AWS_REGION: us-east-1
+      TARGET_REPO: ${{ secrets.TARGET_REPO }}
+      DOCKER_CONTEXT: .
+      DOCKERFILE: Dockerfile
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # For release event this resolves to the release tag; for manual it's default branch
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          # Priority: workflow input > release tag > git describe fallback
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            ver="${{ github.event.inputs.version }}"
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
+            t="${{ github.event.release.tag_name }}"; ver="${t#v}"
+          else
+            t=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')
+            ver="${t#v}"
+          fi
+          if [ -z "$ver" ]; then
+            echo "Failed to determine version. Provide via workflow_dispatch input or create a release tag starting with 'v'." >&2
+            exit 1
+          fi
+          echo "version=$ver" >> $GITHUB_OUTPUT
+
+      - name: Validate TARGET_REPO secret
+        shell: bash
+        run: |
+          if [ -z "${{ env.TARGET_REPO }}" ]; then
+            echo "GitHub Secret TARGET_REPO is not set. Set it to your full ECR repo URI (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my/repo)." >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.GH_AWS_ROLE_ARN }}
+          audience: sts.amazonaws.com
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine Dockerfile path
+        id: dockerfile
+        shell: bash
+        run: |
+          if [ -f "${{ env.DOCKERFILE }}" ]; then
+            echo "context=${{ env.DOCKER_CONTEXT }}" >> $GITHUB_OUTPUT
+            echo "file=${{ env.DOCKERFILE }}" >> $GITHUB_OUTPUT
+          elif [ -f ".bedrock_agentcore/web_tools/Dockerfile" ]; then
+            # Fallback to legacy agent core Dockerfile if present
+            echo "context=.bedrock_agentcore/web_tools" >> $GITHUB_OUTPUT
+            echo "file=Dockerfile" >> $GITHUB_OUTPUT
+          else
+            echo "No Dockerfile found at ${{ env.DOCKERFILE }} or .bedrock_agentcore/web_tools/Dockerfile" >&2
+            exit 1
+          fi
+
+      - name: Build and push image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.dockerfile.outputs.context }}
+          file: ${{ steps.dockerfile.outputs.file && format('{0}/{1}', steps.dockerfile.outputs.context, steps.dockerfile.outputs.file) || env.DOCKERFILE }}
+          push: true
+          tags: |
+            ${{ env.TARGET_REPO }}:${{ steps.ver.outputs.version }}
+            ${{ env.TARGET_REPO }}:latest
+
+      - name: Summary
+        run: |
+          echo "Pushed image: ${{ env.TARGET_REPO }}:${{ steps.ver.outputs.version }} and 'latest'"

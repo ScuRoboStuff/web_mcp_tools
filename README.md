@@ -1,10 +1,21 @@
-﻿
-```
-export LOG_LEVEL=INFO
-python -m src.server
+﻿## Web Serch MCP Tool
+
+This MCP Server has a number of tools that can be used to interact with the Web Searchs and Website COntent
+
+
+### Conventaionl Commit Enabbled :
+
+[build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test] [type-enum]
+
+
+example :
+```aiignore
+build: fix the build
 ```
 
-By default, the server starts using the `streamable-http` transport provided by `fastmcp`. Integrate it with your MCP-compatible client by pointing the client to the running server as per your client's documentation.
+
+
+
 
 ### Using the `web_search` tool
 

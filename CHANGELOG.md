@@ -1,3 +1,11 @@
+## [1.0.2](https://github.com/ScuRoboStuff/web_mcp_tools/compare/v1.0.1...v1.0.2) (2025-11-21)
+
+
+### Bug Fixes
+
+* docker build ([2fd7ba4](https://github.com/ScuRoboStuff/web_mcp_tools/commit/2fd7ba423a92711a79f18c254da49b2f78d88d30))
+* docker build ([0e8a17e](https://github.com/ScuRoboStuff/web_mcp_tools/commit/0e8a17eb1c66067039037d0b7355d00697af1434))
+
 ## [1.0.1](https://github.com/ScuRoboStuff/web_mcp_tools/compare/v1.0.0...v1.0.1) (2025-11-20)
 
 
